@@ -220,7 +220,7 @@ class Analysis:
         axs[4].set_ylabel("Time samples [ns]")
 
         # Plot the radargram in the last subplot
-        axs[5].imshow(radargrams[0].T, aspect='auto', cmap='seismic')
+        axs[5].imshow(radargrams.T, aspect='auto', cmap='seismic')
         axs[5].set_title(f"Radargram")
         axs[5].set_xlabel("Traces")
         axs[5].set_ylabel("Time samples [ns]")
@@ -242,7 +242,7 @@ class Analysis:
             dominant_frequencies = [self.dominant_frequency(trace, sampling_rate) for trace in radargram]
             stats = [self.statistical_descriptors(trace) for trace in radargram]
             reflectivities = [self.reflectivity(trace, window_size=10) for trace in radargram]
-            coherency = self.coherency(radargram, window_size=20)
+            coherency = self.coherency(radargram, window_size=5)
 
             result = {
                 'energy': energies,
