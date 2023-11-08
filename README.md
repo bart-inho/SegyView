@@ -1,40 +1,77 @@
 # SegyView
 
-SegyView is a tool designed to read and plot radargrams from `.sgy` files. It offers capabilities to visualize the data, "detect" and "quantify" ringing, and compare radargram datasets.
+SegyView is a Python script for visualizing and analyzing SEG-Y seismic data files. It provides tools for reading SEG-Y files, plotting radargrams, and conducting various analyses on the data.
 
-## Features
-- Reads `.sgy` files containing radargram data.
-- Plots the radargrams with colorbars indicating amplitude.
-- Provides functionality to sort of detect and quantify ringing in radargram data.
-- Compares ringing quantifications across multiple radargrams.
+## Prerequisites
 
-## Dependencies
+Before using SegyView, make sure you have the following prerequisites installed:
 
-- `tkinter`
-- `obspy`
-- `matplotlib`
-- `numpy`
+- Python (version 3.x)
+- Required Python libraries: `scipy`, `obspy`, `matplotlib`, `numpy`, and `tkinter`.
 
-## Installation
-
-Before running the script, ensure you have all the required dependencies. You can install them using `pip`:
+You can install these libraries using pip:
 
 ```bash
-pip install tkinter obspy matplotlib numpy
+pip install scipy obspy matplotlib numpy
 ```
+
+## Getting Started
+
+1. Clone or download the SegyView repository to your local machine.
+
+2. Open a terminal or command prompt and navigate to the SegyView directory.
+
+3. Run the script using the following command:
+
+   ```bash
+   python main.py
+   ```
+
+4. The script will open a file dialog that allows you to select one or more SEG-Y files for analysis.
+
+5. Once you've selected the files, the script will read the data and provide various visualization and analysis options.
+
+## Features
+
+### File Selection
+
+- Use the file dialog to select one or more SEG-Y files for analysis.
+
+### Radargram Plotting
+
+- Visualize the selected SEG-Y data as radargrams.
+- Indicate minimum amplitude locations in the radargrams.
+- Compare ringing quantifications across different radargrams.
+
+### Trace Analysis
+
+- Compute and visualize various trace-based analyses:
+  - Energy: Calculate the energy of each trace.
+  - Entropy: Measure the entropy of each trace.
+  - Dominant Frequency: Determine the dominant frequency of each trace.
+  - Statistical Descriptors: Calculate statistics like mean, median, variance, skewness, and kurtosis for each trace.
+  - Reflectivity: Compute reflectivity for each trace.
+  - Coherency: Analyze coherency between adjacent traces.
+
+### Subplot Analysis
+
+- Generate a subplot for each radargram, displaying multiple analyses side by side.
+
+### Saving Results
+
+- Save the results of the analysis, including radargram plots, as image files.
 
 ## Usage
 
-1. Run the script:
+- Use the file dialog to select SEG-Y files for analysis.
+- Explore the various analysis options and visualizations provided by the script.
+- Analyze and compare different radargrams based on the computed metrics.
+- Save the results and radargram plots for future reference.
 
-```bash
-python radargram_plotter.py
-```
+## Authors
 
-2. A file dialog will open. Select the `.sgy` radargram files you wish to process.
-3. The tool will plot each selected radargram, indicating minimum amplitude locations.
-4. An additional plot comparing the ringing quantifications across the radargrams will be displayed.
+- Barthélémy Anhorn
 
 ## Contributing
 
-Contributions are welcome! Please open an issue or submit a pull request on GitHub.
+Contributions are welcome! If you have any suggestions, improvements, or bug fixes, please submit a pull request or open an issue.

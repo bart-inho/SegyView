@@ -214,16 +214,22 @@ class Analysis:
         axs[3].set_xlabel("Traces")
         axs[3].set_ylabel("Reflectivity [ ]")
 
-        axs[4].imshow(coherency.T, aspect='auto', cmap='seismic')
+        im = axs[4].imshow(coherency.T, aspect='auto', cmap='seismic')
         axs[4].set_title(f"Coherency of Radargram")
         axs[4].set_xlabel("Traces")
         axs[4].set_ylabel("Time samples [ns]")
+        # add colorbar
+        # cbar = fig.colorbar(im, ax=axs[4], format='%.1e')
+        # cbar.set_label('Coherency')
 
         # Plot the radargram in the last subplot
-        axs[5].imshow(radargrams.T, aspect='auto', cmap='seismic')
+        im = axs[5].imshow(radargrams.T, aspect='auto', cmap='seismic')
         axs[5].set_title(f"Radargram")
         axs[5].set_xlabel("Traces")
         axs[5].set_ylabel("Time samples [ns]")
+        # add colorbar
+        # cbar = fig.colorbar(im, ax=axs[5], format='%.1e')
+        # cbar.set_label('Amplitude')
 
         plt.tight_layout()
         plt.savefig(f'radargram_analysis_{index+1}.png')  # Save each figure with its index number
