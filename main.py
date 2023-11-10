@@ -6,6 +6,7 @@ from obspy.io.segy.segy import _read_segy
 from obspy.core.stream import Stream
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
+from tqdm import tqdm
 import numpy as np
 
 class RadarGramPlotter:
@@ -188,53 +189,52 @@ class Analysis:
                         stats,
                         reflectivities,
                         coherency,
-                        index=0):
+                        index=-1):
         """
         For each radagrams, plot the energy, entropy, dominant frequency, statistical descriptors, reflectivity, and coherency in a subplot.
         """    
 
-        fig, axs = plt.subplots(6, 1, figsize=(10, 5 * 6))
+        fig, axs = plt.subplots(5, 1, figsize=(10, 5 * 6))
         axs[0].plot(energies)
         axs[0].set_title(f"Energy of Radargram")
         axs[0].set_xlabel("Traces")
-        axs[0].set_ylabel("Energy [kJ]")
+        axs[0].set_ylabel("Energy [V^2/m^2]")
 
         axs[1].plot(entropies)
         axs[1].set_title(f"Entropy of Radargram")
         axs[1].set_xlabel("Traces")
         axs[1].set_ylabel("Entropy [ ]")
 
-        axs[2].plot(dominant_frequencies)
-        axs[2].set_title(f"Dominant Frequency of Radargram")
+        # axs[2].plot(dominant_frequencies)
+        # axs[2].set_title(f"Dominant Frequency of Radargram")
+        # axs[2].set_xlabel("Traces")
+        # axs[2].set_ylabel("Frequency [Hz]")
+
+        axs[2].plot(reflectivities)
+        axs[2].set_title(f"Reflectivity of Radargram")
         axs[2].set_xlabel("Traces")
-        axs[2].set_ylabel("Frequency [Hz]")
+        axs[2].set_ylabel("Reflectivity [ ]")
 
-        axs[3].plot(reflectivities)
-        axs[3].set_title(f"Reflectivity of Radargram")
+        im = axs[3].imshow(coherency.T, aspect='auto', cmap='seismic')
+        axs[3].set_title(f"Coherency of Radargram")
         axs[3].set_xlabel("Traces")
-        axs[3].set_ylabel("Reflectivity [ ]")
-
-        im = axs[4].imshow(coherency.T, aspect='auto', cmap='seismic')
-        axs[4].set_title(f"Coherency of Radargram")
-        axs[4].set_xlabel("Traces")
-        axs[4].set_ylabel("Time samples [ns]")
+        axs[3].set_ylabel("Time samples [ns]")
         # add colorbar
         # cbar = fig.colorbar(im, ax=axs[4], format='%.1e')
         # cbar.set_label('Coherency')
 
         # Plot the radargram in the last subplot
-        im = axs[5].imshow(radargrams.T, aspect='auto', cmap='seismic')
-        axs[5].set_title(f"Radargram")
-        axs[5].set_xlabel("Traces")
-        axs[5].set_ylabel("Time samples [ns]")
+        im = axs[4].imshow(radargrams.T, aspect='auto', cmap='seismic')
+        axs[4].set_title(f"Radargram")
+        axs[4].set_xlabel("Traces")
+        axs[4].set_ylabel("Time samples [ns]")
         # add colorbar
         # cbar = fig.colorbar(im, ax=axs[5], format='%.1e')
         # cbar.set_label('Amplitude')
 
         plt.tight_layout()
-        plt.savefig(f'radargram_analysis_{index+1}.png')  # Save each figure with its index number
+        plt.savefig(f'figures/radargram_analysis_{index+1}.png')  # Save each figure with its index number
         plt.close(fig)  # Close the figure after saving to avoid displaying it
-
 
     def analyze_traces(self):
         results = []
@@ -242,7 +242,8 @@ class Analysis:
         # Example: use a fixed sampling rate for FFT, replace with actual if available
         sampling_rate = 1.0
 
-        for index, radargram in enumerate(self.radargrams):
+        # Wrap the enumerator with tqdm for a progress bar
+        for index, radargram in tqdm(enumerate(self.radargrams), total=len(self.radargrams), desc="Analyzing Radargrams"):
             energies = [self.energy(trace) for trace in radargram]
             entropies = [self.entropy(trace) for trace in radargram]
             dominant_frequencies = [self.dominant_frequency(trace, sampling_rate) for trace in radargram]
@@ -264,6 +265,7 @@ class Analysis:
             self.SubPlotAnalysis(radargram, energies, entropies, dominant_frequencies, stats, reflectivities, coherency, index)
 
         return results
+
 
 if __name__ == "__main__":
     plotter = RadarGramPlotter()
