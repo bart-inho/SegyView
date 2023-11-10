@@ -6,6 +6,7 @@ from obspy.io.segy.segy import _read_segy
 from obspy.core.stream import Stream
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
+from matplotlib import gridspec
 from tqdm import tqdm
 import numpy as np
 
@@ -183,58 +184,54 @@ class Analysis:
     def similarity(self, trace1, trace2):
         return np.correlate(trace1, trace2)
 
-    def SubPlotAnalysis(self, radargrams, energies,
-                        entropies,
-                        dominant_frequencies,
-                        stats,
-                        reflectivities,
-                        coherency,
-                        index=-1):
+    def SubPlotAnalysis(self, radargrams, energies, entropies, dominant_frequencies, stats, reflectivities, coherency, index=-1):
         """
         For each radagrams, plot the energy, entropy, dominant frequency, statistical descriptors, reflectivity, and coherency in a subplot.
         """    
 
-        fig, axs = plt.subplots(5, 1, figsize=(10, 5 * 6))
-        axs[0].plot(energies)
-        axs[0].set_title(f"Energy of Radargram")
-        axs[0].set_xlabel("Traces")
-        axs[0].set_ylabel("Energy [V^2/m^2]")
+        fig = plt.figure(figsize=(10, 30))  # Adjust the overall figure size as needed
+        gs = gridspec.GridSpec(5, 2, width_ratios=[1, 0.05])  # Adjust the width ratio for colorbars
 
-        axs[1].plot(entropies)
-        axs[1].set_title(f"Entropy of Radargram")
-        axs[1].set_xlabel("Traces")
-        axs[1].set_ylabel("Entropy [ ]")
+        # Energy plot
+        ax0 = plt.subplot(gs[0, 0])
+        ax0.plot(energies)
+        ax0.set_title("Energy of Radargram")
+        ax0.set_xlabel("Traces")
+        ax0.set_ylabel("Energy [V^2/m^2]")
 
-        # axs[2].plot(dominant_frequencies)
-        # axs[2].set_title(f"Dominant Frequency of Radargram")
-        # axs[2].set_xlabel("Traces")
-        # axs[2].set_ylabel("Frequency [Hz]")
+        # Entropy plot
+        ax1 = plt.subplot(gs[1, 0])
+        ax1.plot(entropies)
+        ax1.set_title("Entropy of Radargram")
+        ax1.set_xlabel("Traces")
+        ax1.set_ylabel("Entropy [ ]")
 
-        axs[2].plot(reflectivities)
-        axs[2].set_title(f"Reflectivity of Radargram")
-        axs[2].set_xlabel("Traces")
-        axs[2].set_ylabel("Reflectivity [ ]")
+        # Reflectivity plot
+        ax2 = plt.subplot(gs[2, 0])
+        ax2.plot(reflectivities)
+        ax2.set_title("Reflectivity of Radargram")
+        ax2.set_xlabel("Traces")
+        ax2.set_ylabel("Reflectivity [ ]")
 
-        im = axs[3].imshow(coherency.T, aspect='auto', cmap='seismic')
-        axs[3].set_title(f"Coherency of Radargram")
-        axs[3].set_xlabel("Traces")
-        axs[3].set_ylabel("Time samples [ns]")
-        # add colorbar
-        # cbar = fig.colorbar(im, ax=axs[4], format='%.1e')
-        # cbar.set_label('Coherency')
+        # Coherency plot with colorbar
+        ax3 = plt.subplot(gs[3, 0])
+        im3 = ax3.imshow(coherency.T, aspect='auto', cmap='seismic')
+        ax3.set_title("Coherency of Radargram")
+        ax3.set_xlabel("Traces")
+        ax3.set_ylabel("Time samples [ns]")
+        plt.colorbar(im3, cax=plt.subplot(gs[3, 1]))
 
-        # Plot the radargram in the last subplot
-        im = axs[4].imshow(radargrams.T, aspect='auto', cmap='seismic')
-        axs[4].set_title(f"Radargram")
-        axs[4].set_xlabel("Traces")
-        axs[4].set_ylabel("Time samples [ns]")
-        # add colorbar
-        # cbar = fig.colorbar(im, ax=axs[5], format='%.1e')
-        # cbar.set_label('Amplitude')
+        # Radargram plot with colorbar
+        ax4 = plt.subplot(gs[4, 0])
+        im4 = ax4.imshow(radargrams.T, aspect='auto', cmap='seismic')
+        ax4.set_title("Radargram")
+        ax4.set_xlabel("Traces")
+        ax4.set_ylabel("Time samples [ns]")
+        plt.colorbar(im4, cax=plt.subplot(gs[4, 1]))
 
         plt.tight_layout()
-        plt.savefig(f'figures/radargram_analysis_{index+1}.png')  # Save each figure with its index number
-        plt.close(fig)  # Close the figure after saving to avoid displaying it
+        plt.savefig(f'figures/radargram_analysis_{index}.png')  # Save each figure with its index number
+        plt.close(fig)
 
     def analyze_traces(self):
         results = []
