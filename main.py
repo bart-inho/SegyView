@@ -221,7 +221,7 @@ class Analysis:
         ax_compare.grid(which='major', axis='both', linestyle='--', color='k', linewidth=.1)
 
         plt.tight_layout()
-        plt.savefig(f'figures_proc2/profile_analysis_{index}.pdf')  # Save each figure with its index number
+        plt.savefig(f'figures_proc4/profile_analysis_{index}.pdf')  # Save each figure with its index number
         plt.close(fig)
 
     def process_profiles(self):
@@ -246,7 +246,6 @@ class Analysis:
             self.SubPlotAnalysis(profile, amplitude, max_trace, max_mean_index, min_trace, min_mean_index, index)
 
         return results
-
 
 if __name__ == "__main__":
     plotter = ProfilePlotter()

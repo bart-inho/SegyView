@@ -2,5 +2,7 @@
 *.jpg
 *.txt
 *.pdf
-figures_proc2/*.pdf
-figures_proc4/*.pdf
+figures_proc2/
+figures_proc4/
+tempCodeRunnerFile.py
+.DS_Store
