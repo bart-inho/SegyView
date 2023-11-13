@@ -10,7 +10,7 @@ from matplotlib import gridspec
 from tqdm import tqdm
 import numpy as np
 
-class RadarGramPlotter:
+class ProfilePlotter:
 
     def __init__(self):
         self.root = tk.Tk()
@@ -50,24 +50,24 @@ class RadarGramPlotter:
         
         return aggregate_amplitude
 
-    def plot_radargrams(self, radargrams):
-        """Plot the given radargrams with indications of minimum amplitude locations."""
-        fig, axs = plt.subplots(len(radargrams), 1, figsize=(10, 5 * len(radargrams)))
+    def plot_radargrams(self, profiles):
+        """Plot the given profiles with indications of minimum amplitude locations."""
+        fig, axs = plt.subplots(len(profiles), 1, figsize=(10, 5 * len(profiles)))
         
-        if len(radargrams) == 1:
+        if len(profiles) == 1:
             axs = [axs]
 
         ringing_quantifications = []
 
-        for idx, radargram in enumerate(radargrams):
+        for idx, profile in enumerate(profiles):
             
             threshold = 8e4
 
-            ringing_amplitudes = [self.quantify_ringing(trace, 10, threshold) for trace in radargram]  # Example values for window_size and threshold
+            ringing_amplitudes = [self.quantify_ringing(trace, 10, threshold) for trace in profile]  # Example values for window_size and threshold
             ringing_quantifications.append(ringing_amplitudes)
             
-            im = axs[idx].imshow(radargram.T, aspect='auto', cmap='seismic',
-                             extent=[0, radargram.shape[0], radargram.shape[1], 0])
+            im = axs[idx].imshow(profile.T, aspect='auto', cmap='seismic',
+                             extent=[0, profile.shape[0], profile.shape[1], 0])
             axs[idx].set_title(f"Radargram {idx+1}")
             axs[idx].set_xlabel("Traces")
             axs[idx].set_ylabel("Time samples")
@@ -99,75 +99,44 @@ class RadarGramPlotter:
         """Main execution function."""
         file_paths = self.select_files()
 
-        self.radargrams = []  # Initialize radargrams as an empty list
+        self.profiles = []  # Initialize profiles as an empty list
         for file_path in file_paths:
-            radargram = self.read_sgy_file(file_path)
-            self.radargrams.append(radargram)
+            profile = self.read_sgy_file(file_path)
+            self.profiles.append(profile)
 
-        # if self.radargrams:
-        #     self.plot_radargrams(self.radargrams)
+        # if self.profiles:
+        #     self.plot_radargrams(self.profiles)
 
 class Analysis:
 
-    def __init__(self, radargrams):
-        self.radargrams = radargrams
+    def __init__(self, profiles):
+        self.profiles = profiles
+    
+    def mean_amplitude(self, trace):
+        return np.mean(np.abs(trace))
 
-    def energy(self, trace):
-        return np.sum(trace ** 2)
-
-    def entropy(self, trace):
-        # Calculate probability trace, but avoid dividing by zero if sum is zero
-        sum_of_squares = np.sum(np.square(trace))
-        if sum_of_squares == 0:
-            return 0  # If the trace is completely zero, entropy is zero.
-        
-        p_trace = np.square(trace) / sum_of_squares
-        # Calculate entropy, but avoid log of zero by only considering non-zero elements
-        entropy = -np.sum(p_trace[p_trace > 0] * np.log(p_trace[p_trace > 0]))
-        return entropy
-
-    def dominant_frequency(self, trace, sampling_rate):
-        w = fft(trace)
-        frequencies = np.fft.fftfreq(len(w), d=1./sampling_rate)
-        peak_frequency = frequencies[np.argmax(np.abs(w))]
-        return peak_frequency
-
-    def statistical_descriptors(self, trace):
-        mean = np.mean(trace)
-        median = np.median(trace)
-        var = np.var(trace)
-        skewness = skew(trace)
-        kurt = kurtosis(trace)
-        return mean, median, var, skewness, kurt
-
-    def reflectivity(self, trace, window_size):
-        windowed_trace = trace[:len(trace) - len(trace) % window_size]
-        reshaped_trace = windowed_trace.reshape(-1, window_size)
-        rms_amplitude = np.sqrt(np.mean(reshaped_trace**2, axis=1))
-        return np.sum(rms_amplitude)
-
-    def coherency(self, radargram, window_size=3):
+    def coherency(self, profile, window_size=3):
         """
         Compute the coherency of each trace with its adjacent traces.
         
         Args:
-        radargram (np.ndarray): 2D array with traces as columns.
+        profile (np.ndarray): 2D array with traces as columns.
         window_size (int): The size of the sliding window to compute coherency.
         
         Returns:
         np.ndarray: 2D array of coherency values.
         """
         # Number of traces
-        num_traces = radargram.shape[1]
+        num_traces = profile.shape[1]
         # Initialize coherency matrix with zeros
-        coherency_matrix = np.zeros((radargram.shape[0], num_traces))
+        coherency_matrix = np.zeros((profile.shape[0], num_traces))
 
         # Iterate over each trace, except the first and last which cannot have coherency
         for i in range(1, num_traces - 1):
             # Extract the main trace and its neighbors
-            main_trace = radargram[:, i]
-            prev_trace = radargram[:, i - 1]
-            next_trace = radargram[:, i + 1]
+            main_trace = profile[:, i]
+            prev_trace = profile[:, i - 1]
+            next_trace = profile[:, i + 1]
 
             # Compute coherency using a sliding window
             for j in range(window_size, len(main_trace) - window_size):
@@ -180,97 +149,111 @@ class Analysis:
                                           np.corrcoef(window_main, window_next)[0, 1]) / 2.0
 
         return coherency_matrix
-
-    def similarity(self, trace1, trace2):
-        return np.correlate(trace1, trace2)
-
-    def SubPlotAnalysis(self, radargrams, energies, entropies, dominant_frequencies, stats, reflectivities, coherency, index=-1):
+    
+    def find_extreme_mean_traces(self, profile):
         """
-        For each radagrams, plot the energy, entropy, dominant frequency, statistical descriptors, reflectivity, and coherency in a subplot.
-        """    
+        Find the traces with the maximum and minimum mean amplitude in the profile.
+        
+        Args:
+        profile (np.ndarray): 2D array with traces as columns.
+        
+        Returns:
+        tuple: Indices of the trace with the max mean amplitude and the trace with the min mean amplitude.
+        """
+        # Calculate the mean amplitude for each trace
+        mean_amplitudes = np.mean(np.abs(profile), axis=1)
+        max_mean_index = np.argmax(mean_amplitudes)
+        min_mean_index = np.argmin(mean_amplitudes)
 
-        fig = plt.figure(figsize=(10, 30))  # Adjust the overall figure size as needed
-        gs = gridspec.GridSpec(5, 2, width_ratios=[1, 0.05])  # Adjust the width ratio for colorbars
+        return max_mean_index, min_mean_index
+
+    def background_removal(self, profile, n_traces):
+        """
+        Remove background noise from the profile by averaging the first n traces and 
+        subtracting this average from each trace in the profile.
+        
+        Args:
+        profile (np.ndarray): 2D array with traces as columns.
+        n_traces (int): Number of traces to use for background averaging.
+        
+        Returns:
+        np.ndarray: Profile with background noise removed.
+        """
+        # Calculate the mean of the first n traces
+        background_mean = profile[:n_traces, :].mean(axis=0)
+
+        # Subtract the background mean from each trace
+        profile -= background_mean
+
+        return profile
+
+    def SubPlotAnalysis(self, profiles, amplitude, max_trace, max_mean_index, min_trace, min_mean_index, index=-1):
+        
+        fig = plt.figure(figsize=(10, 15))  # Adjust the overall figure size as needed
+        gs = gridspec.GridSpec(3, 2, width_ratios=[1, 0.05])  # Adjust the width ratio for colorbars
 
         # Energy plot
         ax0 = plt.subplot(gs[0, 0])
-        ax0.plot(energies)
-        ax0.set_title("Energy of Radargram")
+        ax0.plot(amplitude, 'k')
+        ax0.set_title("Mean trace amplitude")
         ax0.set_xlabel("Traces")
-        ax0.set_ylabel("Energy [V^2/m^2]")
-
-        # Entropy plot
-        ax1 = plt.subplot(gs[1, 0])
-        ax1.plot(entropies)
-        ax1.set_title("Entropy of Radargram")
-        ax1.set_xlabel("Traces")
-        ax1.set_ylabel("Entropy [ ]")
-
-        # Reflectivity plot
-        ax2 = plt.subplot(gs[2, 0])
-        ax2.plot(reflectivities)
-        ax2.set_title("Reflectivity of Radargram")
-        ax2.set_xlabel("Traces")
-        ax2.set_ylabel("Reflectivity [ ]")
-
-        # Coherency plot with colorbar
-        ax3 = plt.subplot(gs[3, 0])
-        im3 = ax3.imshow(coherency.T, aspect='auto', cmap='seismic')
-        ax3.set_title("Coherency of Radargram")
-        ax3.set_xlabel("Traces")
-        ax3.set_ylabel("Time samples [ns]")
-        plt.colorbar(im3, cax=plt.subplot(gs[3, 1]))
+        ax0.set_ylabel("Amplitude [V/m]")
+        ax0.grid(which='major', axis='both', linestyle='--', color='k', linewidth=.1)
 
         # Radargram plot with colorbar
-        ax4 = plt.subplot(gs[4, 0])
-        im4 = ax4.imshow(radargrams.T, aspect='auto', cmap='seismic')
-        ax4.set_title("Radargram")
+        ax4 = plt.subplot(gs[2, 0])
+        im4 = ax4.imshow(profiles.T, aspect='auto', cmap='seismic')
+        ax4.set_title("Radar Profile")
         ax4.set_xlabel("Traces")
         ax4.set_ylabel("Time samples [ns]")
-        plt.colorbar(im4, cax=plt.subplot(gs[4, 1]))
+        cbar4 = plt.colorbar(im4, cax=plt.subplot(gs[2, 1]))
+        cbar4.formatter.set_powerlimits((0, 0))  # Use scientific notation
+        cbar4.update_ticks()
+
+        # Plot for max and min mean amplitude trace comparison
+        ax_compare = plt.subplot(gs[1, 0])
+        ax_compare.plot(max_trace, 'b', linewidth = .8 , label='Max - Trace nb = '+str(max_mean_index))
+        ax_compare.plot(min_trace, 'r', linewidth = 1.5 , label='Min - Trace nb = '+str(min_mean_index))
+        ax_compare.set_title("Comparison of Max and Min Mean Amplitude Traces")
+        ax_compare.set_xlabel("Samples")
+        ax_compare.set_ylabel("Amplitude [V/m]")
+        ax_compare.legend()
+        ax_compare.grid(which='major', axis='both', linestyle='--', color='k', linewidth=.1)
 
         plt.tight_layout()
-        plt.savefig(f'figures/radargram_analysis_{index}.png')  # Save each figure with its index number
+        plt.savefig(f'figures_proc2/profile_analysis_{index}.pdf')  # Save each figure with its index number
         plt.close(fig)
 
-    def analyze_traces(self):
+    def process_profiles(self):
         results = []
 
-        # Example: use a fixed sampling rate for FFT, replace with actual if available
-        sampling_rate = 1.0
-
         # Wrap the enumerator with tqdm for a progress bar
-        for index, radargram in tqdm(enumerate(self.radargrams), total=len(self.radargrams), desc="Analyzing Radargrams"):
-            energies = [self.energy(trace) for trace in radargram]
-            entropies = [self.entropy(trace) for trace in radargram]
-            dominant_frequencies = [self.dominant_frequency(trace, sampling_rate) for trace in radargram]
-            stats = [self.statistical_descriptors(trace) for trace in radargram]
-            reflectivities = [self.reflectivity(trace, window_size=10) for trace in radargram]
-            coherency = self.coherency(radargram, window_size=5)
+        for index, profile in tqdm(enumerate(self.profiles), total=len(self.profiles), desc="Processing Profiles"):
 
-            result = {
-                'energy': energies,
-                'entropy': entropies,
-                'dominant_frequency': dominant_frequencies,
-                'statistical_descriptors': stats,
-                'reflectivity': reflectivities,
-                'coherency': coherency
-            }
+            n_traces_for_background = 20  # Example value, adjust as needed
+            profile = self.background_removal(profile, n_traces_for_background)
 
-            results.append(result)
+            if index == 2:
+                profile = profile[34:, :]
 
-            self.SubPlotAnalysis(radargram, energies, entropies, dominant_frequencies, stats, reflectivities, coherency, index)
+            max_mean_index, min_mean_index = self.find_extreme_mean_traces(profile)
+            max_trace = profile[max_mean_index, :]
+            min_trace = profile[min_mean_index, :]
+            
+            amplitude = [self.mean_amplitude(trace) for trace in profile]
+            # coherency = self.coherency(profile, window_size=5)
+
+            self.SubPlotAnalysis(profile, amplitude, max_trace, max_mean_index, min_trace, min_mean_index, index)
 
         return results
 
 
 if __name__ == "__main__":
-    plotter = RadarGramPlotter()
-    plotter.run()  # This will read the files and populate the radargrams attribute
+    plotter = ProfilePlotter()
+    plotter.run()  # This will read the files and populate the profiles attribute
 
-    if hasattr(plotter, 'radargrams') and plotter.radargrams:
-        analysis = Analysis(plotter.radargrams)
-        results = analysis.analyze_traces()
-
+    if hasattr(plotter, 'profiles') and plotter.profiles:
+        analysis = Analysis(plotter.profiles)
+        results = analysis.process_profiles()
     else:
-        print("No radargrams to analyze.")
+        print("No profiles to process.")

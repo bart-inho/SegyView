@@ -1,3 +1,6 @@
 *.png
 *.jpg
-figures/
+*.txt
+*.pdf
+figures_proc2/*.pdf
+figures_proc4/*.pdf
