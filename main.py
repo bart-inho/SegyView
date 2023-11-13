@@ -28,28 +28,6 @@ class ProfilePlotter:
         data = np.stack([trace.data for trace in stream.traces])
         return data
 
-    def detect_ringing(self, trace, window_size, threshold):
-        """Detect ringing in a trace using a sliding window and return the detected positions."""
-        half_window = window_size // 2
-        detected_positions = []
-        
-        for i in range(half_window, len(trace) - half_window):
-            window_sum = np.sum(np.abs(trace[i - half_window: i + half_window]))
-            
-            if window_sum > threshold:
-                detected_positions.append(i)
-                
-        return detected_positions
-
-    def quantify_ringing(self, trace, window_size, threshold):
-        """Quantify the ringing in a trace and return an aggregate measure."""
-        detected_positions = self.detect_ringing(trace, window_size, threshold)
-        
-        # Compute total amplitude within detected ringing regions
-        aggregate_amplitude = sum([trace[pos] for pos in detected_positions])
-        
-        return aggregate_amplitude
-
     def plot_radargrams(self, profiles):
         """Plot the given profiles with indications of minimum amplitude locations."""
         fig, axs = plt.subplots(len(profiles), 1, figsize=(10, 5 * len(profiles)))
