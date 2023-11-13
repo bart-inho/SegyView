@@ -1,77 +1,49 @@
 # SegyView
 
-SegyView is a Python script for visualizing and analyzing SEG-Y seismic data files. It provides tools for reading SEG-Y files, plotting radargrams, and conducting various analyses on the data.
+SegyView is a Python-based tool for visualizing and analyzing SEG-Y formatted seismic data files. The tool provides functionalities to open and read `.sgy` files, detect and quantify ringing artifacts within seismic traces, perform background noise removal, and generate comparative plots of processed seismic profiles.
 
-## Prerequisites
+## Installation
 
-Before using SegyView, make sure you have the following prerequisites installed:
+Before running SegyView, ensure that the following Python libraries are installed:
+- `scipy`
+- `numpy`
+- `matplotlib`
+- `tkinter`
+- `obspy`
+- `tqdm`
 
-- Python (version 3.x)
-- Required Python libraries: `scipy`, `obspy`, `matplotlib`, `numpy`, and `tkinter`.
+These can be installed via `pip` using the following command:
 
-You can install these libraries using pip:
-
-```bash
-pip install scipy obspy matplotlib numpy
+```shell
+pip install scipy numpy matplotlib tk obspy tqdm
 ```
 
-## Getting Started
-
-1. Clone or download the SegyView repository to your local machine.
-
-2. Open a terminal or command prompt and navigate to the SegyView directory.
-
-3. Run the script using the following command:
-
-   ```bash
-   python main.py
-   ```
-
-4. The script will open a file dialog that allows you to select one or more SEG-Y files for analysis.
-
-5. Once you've selected the files, the script will read the data and provide various visualization and analysis options.
-
-## Features
-
-### File Selection
-
-- Use the file dialog to select one or more SEG-Y files for analysis.
-
-### Radargram Plotting
-
-- Visualize the selected SEG-Y data as radargrams.
-- Indicate minimum amplitude locations in the radargrams.
-- Compare ringing quantifications across different radargrams.
-
-### Trace Analysis
-
-- Compute and visualize various trace-based analyses:
-  - Energy: Calculate the energy of each trace.
-  - Entropy: Measure the entropy of each trace.
-  - Dominant Frequency: Determine the dominant frequency of each trace.
-  - Statistical Descriptors: Calculate statistics like mean, median, variance, skewness, and kurtosis for each trace.
-  - Reflectivity: Compute reflectivity for each trace.
-  - Coherency: Analyze coherency between adjacent traces.
-
-### Subplot Analysis
-
-- Generate a subplot for each radargram, displaying multiple analyses side by side.
-
-### Saving Results
-
-- Save the results of the analysis, including radargram plots, as image files.
+Note: `tkinter` typically comes with Python. If it's not installed, you may need to install it using your system's package manager.
 
 ## Usage
 
-- Use the file dialog to select SEG-Y files for analysis.
-- Explore the various analysis options and visualizations provided by the script.
-- Analyze and compare different radargrams based on the computed metrics.
-- Save the results and radargram plots for future reference.
+To run SegyView, navigate to the directory containing `main.py` and execute the following command in the terminal:
 
-## Authors
+```shell
+python main.py
+```
 
-- Barthélémy Anhorn
+A file dialog will appear, allowing you to select one or more `.sgy` files to be processed.
+
+## Features
+
+- **File Selection**: Utilize a GUI dialog to choose SEG-Y files for analysis.
+- **Ringing Detection**: Identify and quantify ringing effects in seismic traces.
+- **Background Removal**: Subtract the mean of the first N traces from each trace to remove background noise.
+- **Amplitude Analysis**: Calculate and plot the mean trace amplitude.
+- **Coherency Analysis**: Assess the coherency between adjacent traces (commented out in the current version).
+- **Trace Comparison**: Compare the traces with the maximum and minimum mean amplitude.
+- **Plot Generation**: Automatically save generated plots as PDF files in a specified directory.
+
+## Output
+
+The results of the analysis are saved as PDF files in the `figures` directory, with each file named according to the index of the profile analyzed.
 
 ## Contributing
 
-Contributions are welcome! If you have any suggestions, improvements, or bug fixes, please submit a pull request or open an issue.
+Contributions to SegyView are welcome. Please feel free to fork the repository, make changes, and submit pull requests.
