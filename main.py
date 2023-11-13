@@ -179,17 +179,17 @@ class Analysis:
         ax0.grid(which='major', axis='both', linestyle='--', color='k', linewidth=.1)
 
         # Radargram plot with colorbar
-        ax4 = plt.subplot(gs[2, 0])
+        ax4 = plt.subplot(gs[1, 0])
         im4 = ax4.imshow(profiles.T, aspect='auto', cmap='seismic')
         ax4.set_title("Radar Profile")
         ax4.set_xlabel("Traces")
         ax4.set_ylabel("Time samples [ns]")
-        cbar4 = plt.colorbar(im4, cax=plt.subplot(gs[2, 1]))
+        cbar4 = plt.colorbar(im4, cax=plt.subplot(gs[1, 1]))
         cbar4.formatter.set_powerlimits((0, 0))  # Use scientific notation
         cbar4.update_ticks()
 
         # Plot for max and min mean amplitude trace comparison
-        ax_compare = plt.subplot(gs[1, 0])
+        ax_compare = plt.subplot(gs[2, 0])
         ax_compare.plot(max_trace, 'b', linewidth = .8 , label='Max - Trace nb = '+str(max_mean_index))
         ax_compare.plot(min_trace, 'r', linewidth = 1.5 , label='Min - Trace nb = '+str(min_mean_index))
         ax_compare.set_title("Comparison of Max and Min Mean Amplitude Traces")
@@ -199,7 +199,7 @@ class Analysis:
         ax_compare.grid(which='major', axis='both', linestyle='--', color='k', linewidth=.1)
 
         plt.tight_layout()
-        plt.savefig(f'figures_proc4/profile_analysis_{index}.pdf')  # Save each figure with its index number
+        plt.savefig(f'figures_proc2/profile_analysis_{index}.pdf')  # Save each figure with its index number
         plt.close(fig)
 
     def process_profiles(self):
@@ -211,8 +211,14 @@ class Analysis:
             n_traces_for_background = 20  # Example value, adjust as needed
             profile = self.background_removal(profile, n_traces_for_background)
 
+            if index == 0:
+                profile = profile[:155, :]
+
             if index == 2:
                 profile = profile[34:, :]
+
+            if index == 4:
+                profile = profile[125:, :]
 
             max_mean_index, min_mean_index = self.find_extreme_mean_traces(profile)
             max_trace = profile[max_mean_index, :]
