@@ -180,7 +180,7 @@ class Analysis:
 
         # Radargram plot with colorbar
         ax4 = plt.subplot(gs[1, 0])
-        im4 = ax4.imshow(profiles.T, aspect='auto', cmap='seismic')
+        im4 = ax4.imshow(profiles.T, aspect='auto', cmap='seismic')#, clim=(-1e4, 1e4))
         ax4.set_title("Radar Profile")
         ax4.set_xlabel("Traces")
         ax4.set_ylabel("Time samples [ns]")
@@ -219,6 +219,9 @@ class Analysis:
 
             if index == 4:
                 profile = profile[125:, :]
+
+            if index == 13:
+                profile = profile[:190, :]
 
             max_mean_index, min_mean_index = self.find_extreme_mean_traces(profile)
             max_trace = profile[max_mean_index, :]
