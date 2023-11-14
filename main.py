@@ -165,10 +165,21 @@ class Analysis:
 
         return profile
 
-    def SubPlotAnalysis(self, profiles, amplitude, max_trace, max_mean_index, min_trace, min_mean_index, index=-1):
+    def SubPlotAnalysis(self, 
+                        profiles, 
+                        amplitude, 
+                        max_trace, 
+                        max_mean_index, 
+                        min_trace, 
+                        min_mean_index,
+                        max_mean_index_control,
+                        max_trace_control,
+                        min_mean_index_control,
+                        min_trace_control, 
+                        index=-1):
         
-        fig = plt.figure(figsize=(10, 15))  # Adjust the overall figure size as needed
-        gs = gridspec.GridSpec(3, 2, width_ratios=[1, 0.05])  # Adjust the width ratio for colorbars
+        fig = plt.figure(figsize=(10, 10))  # Adjust the overall figure size as needed
+        gs = gridspec.GridSpec(4, 2, width_ratios=[1, 0.01])  # Adjust the width ratio for colorbars
 
         # Energy plot
         ax0 = plt.subplot(gs[0, 0])
@@ -188,18 +199,27 @@ class Analysis:
         cbar4.formatter.set_powerlimits((0, 0))  # Use scientific notation
         cbar4.update_ticks()
 
-        # Plot for max and min mean amplitude trace comparison
+        # Plot for max mean amplitude trace comparison
         ax_compare = plt.subplot(gs[2, 0])
-        ax_compare.plot(max_trace, 'b', linewidth = .8 , label='Max - Trace nb = '+str(max_mean_index))
-        ax_compare.plot(min_trace, 'r', linewidth = 1.5 , label='Min - Trace nb = '+str(min_mean_index))
-        ax_compare.set_title("Comparison of Max and Min Mean Amplitude Traces")
+        ax_compare.plot(max_trace_control, 'k', linewidth = 1 , label='Control - Trace nb = '+str(max_mean_index_control))
+        ax_compare.plot(max_trace, 'r', linewidth = 1.5 , label='Max - Trace nb = '+str(max_mean_index))
+        ax_compare.set_title("Comparison of Max Mean Amplitude Traces")
         ax_compare.set_xlabel("Samples")
         ax_compare.set_ylabel("Amplitude [V/m]")
         ax_compare.legend()
         ax_compare.grid(which='major', axis='both', linestyle='--', color='k', linewidth=.1)
 
+        # Plot the difference between the max mean amplitude trace and the control trace
+        ax_sub = plt.subplot(gs[3, 0])
+        ax_sub.plot(np.abs(max_trace - max_trace_control), 'k', linewidth = 1 , label='Trace Substraction')
+        ax_sub.set_title("Control - Schielding")
+        ax_sub.set_xlabel("Samples")
+        ax_sub.set_ylabel("Amplitude [V/m]")
+        ax_sub.legend()
+        ax_sub.grid(which='major', axis='both', linestyle='--', color='k', linewidth=.1)
+
         plt.tight_layout()
-        plt.savefig(f'figures_proc2/profile_analysis_{index}.pdf')  # Save each figure with its index number
+        plt.savefig(f'figures_proc4/profile_analysis_{index}.pdf')  # Save each figure with its index number
         plt.close(fig)
 
     def process_profiles(self):
@@ -213,6 +233,9 @@ class Analysis:
 
             if index == 0:
                 profile = profile[:155, :]
+                max_mean_index_control, min_mean_index_control = self.find_extreme_mean_traces(profile)
+                max_trace_control = profile[max_mean_index_control, :]
+                min_trace_control = profile[min_mean_index_control, :]
 
             if index == 2:
                 profile = profile[34:, :]
@@ -230,7 +253,17 @@ class Analysis:
             amplitude = [self.mean_amplitude(trace) for trace in profile]
             # coherency = self.coherency(profile, window_size=5)
 
-            self.SubPlotAnalysis(profile, amplitude, max_trace, max_mean_index, min_trace, min_mean_index, index)
+            self.SubPlotAnalysis(profile, 
+                                 amplitude, 
+                                 max_trace, 
+                                 max_mean_index, 
+                                 min_trace, 
+                                 min_mean_index,
+                                 max_mean_index_control,
+                                 max_trace_control,
+                                 min_mean_index_control,
+                                 min_trace_control, 
+                                 index)
 
         return results
 
