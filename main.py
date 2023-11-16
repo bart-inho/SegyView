@@ -1,16 +1,14 @@
-from scipy.fftpack import fft
-from scipy.stats import skew, kurtosis
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.ticker import ScalarFormatter
 import tkinter as tk
 from tkinter import filedialog
 from obspy.io.segy.segy import _read_segy
-from obspy.core.stream import Stream
-import matplotlib.pyplot as plt
-from matplotlib.ticker import ScalarFormatter
-from matplotlib import gridspec
+from scipy.signal import butter, filtfilt
 from tqdm import tqdm
-import numpy as np
 
-class ProfilePlotter:
+
+class ReadSegy:
 
     def __init__(self):
         self.root = tk.Tk()
@@ -28,51 +26,6 @@ class ProfilePlotter:
         data = np.stack([trace.data for trace in stream.traces])
         return data
 
-    def plot_radargrams(self, profiles):
-        """Plot the given profiles with indications of minimum amplitude locations."""
-        fig, axs = plt.subplots(len(profiles), 1, figsize=(10, 5 * len(profiles)))
-        
-        if len(profiles) == 1:
-            axs = [axs]
-
-        ringing_quantifications = []
-
-        for idx, profile in enumerate(profiles):
-            
-            threshold = 8e4
-
-            ringing_amplitudes = [self.quantify_ringing(trace, 10, threshold) for trace in profile]  # Example values for window_size and threshold
-            ringing_quantifications.append(ringing_amplitudes)
-            
-            im = axs[idx].imshow(profile.T, aspect='auto', cmap='seismic',
-                             extent=[0, profile.shape[0], profile.shape[1], 0])
-            axs[idx].set_title(f"Radargram {idx+1}")
-            axs[idx].set_xlabel("Traces")
-            axs[idx].set_ylabel("Time samples")
-
-            # Add colorbar in scientific notation
-            cbar = fig.colorbar(im, ax=axs[idx], format='%.1e')
-            cbar.set_label('Amplitude')
-
-        # Compare the ringing quantifications
-        fig, ax = plt.subplots(figsize=(10, 5))
-        for idx, ringing in enumerate(ringing_quantifications):
-            ax.plot(ringing, label=f"Radargram {idx+1}")
-            
-        ax.set_title("Ringing Quantification Comparison")
-        ax.set_xlabel("Traces")
-        ax.set_ylabel("Aggregate Amplitude of Ringing")
-        ax.legend()
-
-        # Set y-axis to scientific notation
-        formatter = ScalarFormatter(useMathText=True)
-        formatter.set_scientific(True)
-        formatter.set_powerlimits((-1, 1))
-        ax.yaxis.set_major_formatter(formatter)
-        
-        # plt.tight_layout()
-        # plt.show()
-
     def run(self):
         """Main execution function."""
         file_paths = self.select_files()
@@ -82,9 +35,6 @@ class ProfilePlotter:
             profile = self.read_sgy_file(file_path)
             self.profiles.append(profile)
 
-        # if self.profiles:
-        #     self.plot_radargrams(self.profiles)
-
 class Analysis:
 
     def __init__(self, profiles):
@@ -92,41 +42,6 @@ class Analysis:
     
     def mean_amplitude(self, trace):
         return np.mean(np.abs(trace))
-
-    def coherency(self, profile, window_size=3):
-        """
-        Compute the coherency of each trace with its adjacent traces.
-        
-        Args:
-        profile (np.ndarray): 2D array with traces as columns.
-        window_size (int): The size of the sliding window to compute coherency.
-        
-        Returns:
-        np.ndarray: 2D array of coherency values.
-        """
-        # Number of traces
-        num_traces = profile.shape[1]
-        # Initialize coherency matrix with zeros
-        coherency_matrix = np.zeros((profile.shape[0], num_traces))
-
-        # Iterate over each trace, except the first and last which cannot have coherency
-        for i in range(1, num_traces - 1):
-            # Extract the main trace and its neighbors
-            main_trace = profile[:, i]
-            prev_trace = profile[:, i - 1]
-            next_trace = profile[:, i + 1]
-
-            # Compute coherency using a sliding window
-            for j in range(window_size, len(main_trace) - window_size):
-                window_main = main_trace[j - window_size:j + window_size]
-                window_prev = prev_trace[j - window_size:j + window_size]
-                window_next = next_trace[j - window_size:j + window_size]
-
-                # Compute the average coherency with previous and next trace
-                coherency_matrix[j, i] = (np.corrcoef(window_main, window_prev)[0, 1] +
-                                          np.corrcoef(window_main, window_next)[0, 1]) / 2.0
-
-        return coherency_matrix
     
     def find_extreme_mean_traces(self, profile):
         """
@@ -145,8 +60,33 @@ class Analysis:
 
         return max_mean_index, min_mean_index
 
-    def background_removal(self, profile, n_traces):
+    def set_time_zero(self, profile, zero_time=400):
         """
+        Set time to zero
+        """
+        point_per_trace = 1250
+        total_time_window = 4000
+        zero_index = int(zero_time / total_time_window * point_per_trace)
+        profile = profile[:, zero_index:]
+
+        return profile
+
+    def time_window_cut(self, profile, time_cut=750):
+        """
+        Cuts the time window of the profile to expose only the n first nanoseconds
+        """
+        
+        # Calculate the index to cut based on the time in nanoseconds
+        point_per_trace = 1250
+        total_time_window = 4000
+        time_index = int(time_cut / total_time_window * point_per_trace)
+
+        profile = profile[:, :time_index]
+
+        return profile
+
+    def background_removal(self, profile, n_traces):
+        """ 
         Remove background noise from the profile by averaging the first n traces and 
         subtracting this average from each trace in the profile.
         
@@ -164,115 +104,183 @@ class Analysis:
         profile -= background_mean
 
         return profile
+    
+    def butterworth_bandpass(self, profile, lowcut, highcut, fs, index, order=5):
+        """
+        Apply a Butterworth bandpass filter to the profile.
+
+        Args:
+        profile (np.ndarray): 2D array with traces as columns.
+        lowcut (float): Low cutoff frequency of the filter in Hz.
+        highcut (float): High cutoff frequency of the filter in Hz.
+        fs (float): Sampling frequency in Hz.
+        order (int): The order of the filter.
+
+        Returns:
+        np.ndarray: The filtered profile.
+        """
+
+        # Nyquist Frequency
+        nyq = 0.5 * fs
+
+        # Normalized frequencies must be in the range 0 to 1
+        low = lowcut / nyq
+        high = highcut / nyq
+
+        # Design the Butterworth bandpass filter
+        b, a = butter(order, [low, high], btype='band')
+
+        # Apply the filter to each trace in the profile
+        filtered_profile = np.zeros_like(profile)
+        for i in range(profile.shape[0]):
+            filtered_profile[i,:] = filtfilt(b, a, profile[i,:])
+
+        return profile, filtered_profile
 
     def SubPlotAnalysis(self, 
-                        profiles, 
-                        amplitude, 
+                        profile,
+                        backg_profile, 
                         max_trace, 
                         max_mean_index, 
-                        min_trace, 
-                        min_mean_index,
                         max_mean_index_control,
                         max_trace_control,
-                        min_mean_index_control,
-                        min_trace_control, 
                         index=-1):
-        
-        fig = plt.figure(figsize=(10, 10))  # Adjust the overall figure size as needed
-        gs = gridspec.GridSpec(4, 2, width_ratios=[1, 0.01])  # Adjust the width ratio for colorbars
 
-        # Energy plot
-        ax0 = plt.subplot(gs[0, 0])
-        ax0.plot(amplitude, 'k')
-        ax0.set_title("Mean trace amplitude")
-        ax0.set_xlabel("Traces")
-        ax0.set_ylabel("Amplitude [V/m]")
-        ax0.grid(which='major', axis='both', linestyle='--', color='k', linewidth=.1)
+        fig = plt.figure(figsize=(7, 8), constrained_layout=True)
+        axs = fig.subplot_mosaic([
+            ["profile", "spectrum"],
+            ["comparison", "comparison"],
+            ["difference", "difference"]
+        ])
 
-        # Radargram plot with colorbar
-        ax4 = plt.subplot(gs[1, 0])
-        im4 = ax4.imshow(profiles.T, aspect='auto', cmap='seismic')#, clim=(-1e4, 1e4))
-        ax4.set_title("Radar Profile")
-        ax4.set_xlabel("Traces")
-        ax4.set_ylabel("Time samples [ns]")
-        cbar4 = plt.colorbar(im4, cax=plt.subplot(gs[1, 1]))
-        cbar4.formatter.set_powerlimits((0, 0))  # Use scientific notation
-        cbar4.update_ticks()
+        plt.suptitle(f"Profile Analysis LINE{index}")
+
+        # Calculate the time values for the y-axis
+        sampling_frequency = 1250  # points per trace
+        time_window = 4000e-9  # seconds
+        time_in_ns = np.arange(profile.shape[1]) * (time_window * 1e9) / sampling_frequency
+        # Plot the radar profile using pcolor
+        profile_img = axs['profile'].pcolor(np.arange(profile.shape[0]), time_in_ns, profile.T, cmap='seismic')
+        axs['profile'].set_title("Radar Profile")
+        axs['profile'].set_xlabel("Traces")
+        axs['profile'].set_ylabel("Time [ns]")
+        axs['profile'].invert_yaxis()
+
+        # Add colorbar for the radar profile
+        cbar = fig.colorbar(profile_img, ax=axs['profile'], location='left', pad=-0.15)
+
+        # Create a ScalarFormatter object
+        formatter = ScalarFormatter(useMathText=True)  # This enables scientific notation
+        formatter.set_scientific(True)  # Always use scientific notation
+        formatter.set_powerlimits((0,0))  # This will force scientific notation
+        # Apply the formatter to the colorbar
+        cbar.ax.yaxis.set_major_formatter(formatter)
+
+        # Plot the amplitude spectrum
+        axs['spectrum'].magnitude_spectrum(np.mean(backg_profile, axis=0), color='.6', scale='dB', Fs=1250/4000e-9, label='RAW')
+        axs['spectrum'].magnitude_spectrum(np.mean(profile, axis=0), color='r', scale='dB', Fs=1250/4000e-9, label='Filtered')
+        axs['spectrum'].set_title("Amplitude Spectrum")
+        axs['spectrum'].set_xlabel("Frequency [MHz]")
+        axs['spectrum'].set_ylabel("Amplitude [dB]")
+        # add a vertical line at 25 MHz
+        axs['spectrum'].axvline(x=25e6, color='.5', linestyle='--', linewidth=.5)
+        axs['spectrum'].set_ylim(bottom=0)
+        axs['spectrum'].set_xlim(left=0)
+        axs['spectrum'].set_xlim(right=150e6)
+        axs['spectrum'].legend()
+        locs = axs['spectrum'].get_xticks()
+        axs['spectrum'].set_xticks(locs, map(lambda x: "{:.0f}".format(x/1e6), locs))
 
         # Plot for max mean amplitude trace comparison
-        ax_compare = plt.subplot(gs[2, 0])
-        ax_compare.plot(max_trace_control, 'k', linewidth = 1 , label='Control - Trace nb = '+str(max_mean_index_control))
-        ax_compare.plot(max_trace, 'r', linewidth = 1.5 , label='Max - Trace nb = '+str(max_mean_index))
-        ax_compare.set_title("Comparison of Max Mean Amplitude Traces")
-        ax_compare.set_xlabel("Samples")
-        ax_compare.set_ylabel("Amplitude [V/m]")
-        ax_compare.legend()
-        ax_compare.grid(which='major', axis='both', linestyle='--', color='k', linewidth=.1)
+        axs['comparison'].plot(time_in_ns, max_trace_control, 'k', label='Control - Trace nb = '+str(max_mean_index_control))
+        axs['comparison'].plot(time_in_ns, max_trace, 'r', label='Max - Trace nb = '+str(max_mean_index))
+        axs['comparison'].set_title("Comparison of Max Mean Amplitude Traces")
+        axs['comparison'].set_xlabel("Samples")
+        axs['comparison'].set_ylabel("Amplitude [V/m]")
+        axs['comparison'].set_xlim(left=0)
+        axs['comparison'].legend()
+        axs['comparison'].grid(which='major', axis='both', linestyle='--', color='k', linewidth=.1)
 
         # Plot the difference between the max mean amplitude trace and the control trace
-        ax_sub = plt.subplot(gs[3, 0])
-        ax_sub.plot(np.abs(max_trace - max_trace_control), 'k', linewidth = 1 , label='Trace Substraction')
-        ax_sub.set_title("Control - Schielding")
-        ax_sub.set_xlabel("Samples")
-        ax_sub.set_ylabel("Amplitude [V/m]")
-        ax_sub.legend()
-        ax_sub.grid(which='major', axis='both', linestyle='--', color='k', linewidth=.1)
+        axs['difference'].plot(time_in_ns, np.abs(max_trace - max_trace_control), 'k', label='Trace Substraction')
+        axs['difference'].set_title("Control - Shielding")
+        axs['difference'].set_xlabel("Samples")
+        axs['difference'].set_ylabel("Amplitude [V/m]")
+        axs['difference'].set_xlim(left=0)
+        axs['difference'].legend()
+        axs['difference'].grid(which='major', axis='both', linestyle='--', color='k', linewidth=.1)
 
-        plt.tight_layout()
-        plt.savefig(f'figures_proc4/profile_analysis_{index}.pdf')  # Save each figure with its index number
+        plt.savefig(f'figures/profile_analysis_{index}.pdf')  # Save each figure with its index number
         plt.close(fig)
 
     def process_profiles(self):
-        results = []
 
         # Wrap the enumerator with tqdm for a progress bar
         for index, profile in tqdm(enumerate(self.profiles), total=len(self.profiles), desc="Processing Profiles"):
 
-            n_traces_for_background = 20  # Example value, adjust as needed
+            # GROUNDED DATA
+            if index == 0:
+                profile = profile[150:-20, :]
+
+            if index == 2:
+                profile = profile[20:-20, :]   
+
+            if index == 3:
+                profile = profile[80:-20, :]
+
+            if index == 5:
+                profile = profile[20:180, :]
+            
+            # NOT GROUNDED DATA
+
+            # if index == 0:
+            #     profile = profile[:200, :]
+
+            # if index == 2:
+            #     profile = profile[34:, :]
+
+            # if index == 4:
+            #     profile = profile[125:, :]
+
+            # if index == 13:
+            #     profile = profile[:190, :]
+
+            zero_time = 420
+            profile = self.set_time_zero(profile, zero_time)
+
+            time_cut = 750
+            profile = self.time_window_cut(profile, time_cut)
+
+            n_traces_for_background = 10  # Example value, adjust as needed
             profile = self.background_removal(profile, n_traces_for_background)
 
+            # Apply Butterworth Bandpass filter
+            fs = 1250/4000e-9  # Example sampling frequency in Hz (adjust as needed)
+            backg_profile, profile = self.butterworth_bandpass(profile, 10e6, 60e6, fs, index)
+
             if index == 0:
-                profile = profile[:155, :]
                 max_mean_index_control, min_mean_index_control = self.find_extreme_mean_traces(profile)
                 max_trace_control = profile[max_mean_index_control, :]
                 min_trace_control = profile[min_mean_index_control, :]
 
-            if index == 2:
-                profile = profile[34:, :]
-
-            if index == 4:
-                profile = profile[125:, :]
-
-            if index == 13:
-                profile = profile[:190, :]
-
             max_mean_index, min_mean_index = self.find_extreme_mean_traces(profile)
             max_trace = profile[max_mean_index, :]
             min_trace = profile[min_mean_index, :]
-            
-            amplitude = [self.mean_amplitude(trace) for trace in profile]
-            # coherency = self.coherency(profile, window_size=5)
 
             self.SubPlotAnalysis(profile, 
-                                 amplitude, 
+                                 backg_profile, 
                                  max_trace, 
                                  max_mean_index, 
-                                 min_trace, 
-                                 min_mean_index,
                                  max_mean_index_control,
                                  max_trace_control,
-                                 min_mean_index_control,
-                                 min_trace_control, 
                                  index)
 
-        return results
-
 if __name__ == "__main__":
-    plotter = ProfilePlotter()
-    plotter.run()  # This will read the files and populate the profiles attribute
+    read = ReadSegy()
+    read.run()  # This will read the files and populate the profiles attribute
 
-    if hasattr(plotter, 'profiles') and plotter.profiles:
-        analysis = Analysis(plotter.profiles)
-        results = analysis.process_profiles()
+    if hasattr(read, 'profiles') and read.profiles:
+        analysis = Analysis(read.profiles)
+        analysis.process_profiles()
     else:
         print("No profiles to process.")

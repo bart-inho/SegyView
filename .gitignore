@@ -4,5 +4,6 @@
 *.pdf
 figures_proc2/
 figures_proc4/
+figures
 tempCodeRunnerFile.py
 .DS_Store
