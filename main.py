@@ -146,11 +146,10 @@ class Analysis:
                         max_trace_control,
                         index=-1):
 
-        fig = plt.figure(figsize=(7, 8), constrained_layout=True)
+        fig = plt.figure(figsize=(8, 6), constrained_layout=True)
         axs = fig.subplot_mosaic([
             ["profile", "spectrum"],
-            ["comparison", "comparison"],
-            ["difference", "difference"]
+            ["comparison", "comparison"]
         ])
 
         plt.suptitle(f"Profile Analysis LINE{index}")
@@ -193,22 +192,13 @@ class Analysis:
 
         # Plot for max mean amplitude trace comparison
         axs['comparison'].plot(time_in_ns, max_trace_control, 'k', label='Control - Trace nb = '+str(max_mean_index_control))
-        axs['comparison'].plot(time_in_ns, max_trace, 'r', label='Max - Trace nb = '+str(max_mean_index))
-        axs['comparison'].set_title("Comparison of Max Mean Amplitude Traces")
-        axs['comparison'].set_xlabel("Samples")
+        axs['comparison'].plot(time_in_ns, max_trace, 'r', label='Shielding - Trace nb = '+str(max_mean_index))
+        axs['comparison'].set_title("Trace comparison (minimal distance to the crane)")
+        axs['comparison'].set_xlabel("Time [ns]")
         axs['comparison'].set_ylabel("Amplitude [V/m]")
         axs['comparison'].set_xlim(left=0)
         axs['comparison'].legend()
         axs['comparison'].grid(which='major', axis='both', linestyle='--', color='k', linewidth=.1)
-
-        # Plot the difference between the max mean amplitude trace and the control trace
-        axs['difference'].plot(time_in_ns, np.abs(max_trace - max_trace_control), 'k', label='Trace Substraction')
-        axs['difference'].set_title("Control - Shielding")
-        axs['difference'].set_xlabel("Samples")
-        axs['difference'].set_ylabel("Amplitude [V/m]")
-        axs['difference'].set_xlim(left=0)
-        axs['difference'].legend()
-        axs['difference'].grid(which='major', axis='both', linestyle='--', color='k', linewidth=.1)
 
         plt.savefig(f'figures/profile_analysis_{index}.pdf')  # Save each figure with its index number
         plt.close(fig)
